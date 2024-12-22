@@ -1,0 +1,11 @@
+[package]
+name = "dotstar-rs"
+version = "0.1.0"
+edition = "2021"
+authors = ["Austin McElroy <me@austin.engineer>"]
+
+[dependencies]
+
+[features]
+default = []
+wasm = []
