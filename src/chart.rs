@@ -37,7 +37,7 @@ impl<const CHARTS: usize, const POINTS: usize> Chart<CHARTS, POINTS> {
         let len = 4 * self.rgb.len();
         let ptr = self.rgb.as_ptr() as *const u8;
         unsafe {
-            std::slice::from_raw_parts(ptr, len)
+            core::slice::from_raw_parts(ptr, len)
         }
 	}
 }

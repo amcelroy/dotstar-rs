@@ -1,3 +1,5 @@
+use libm;
+
 pub struct Waveform<const POINTS: usize> {
     amplitude: f32,
     freq: f32,
@@ -31,13 +33,13 @@ impl<const POINTS: usize> Waveform<POINTS> {
 	
 	pub fn update(&mut self, t: f32, dt: f32) {
 		for i in 0..POINTS {
-            self.data[i] = self.amplitude*(2.0*PI*self.freq * (t + (i as f32)*dt) + self.phase).sin();
+            self.data[i] = self.amplitude*libm::sinf(2.0*PI*self.freq * (t + (i as f32)*dt) + self.phase);
         }
 	}
 
     pub fn update_point(&mut self, t: f32, dt: f32, i: usize) -> Option<f32> {
         if i < POINTS {
-            self.data[i] = self.amplitude*(2.0*PI*self.freq * (t + (i as f32)*dt) + self.phase).sin();
+            self.data[i] = self.amplitude*libm::sinf(2.0*PI*self.freq * (t + (i as f32)*dt) + self.phase);
             Some(self.data[i])
         }else{
             None

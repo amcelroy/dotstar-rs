@@ -1,9 +1,12 @@
+#![no_std]
+
 pub mod waveform;
 pub mod chart;
 
+#[repr(u32)]
 pub enum Frames {
-    StartFrame = 0x00000000,
-    EndFrame = 0xFFFFFFFF
+    StartFrame = 0x0000_0000,
+    EndFrame = 0xFFFF_FFFF,
 }
 
 pub trait Dotstar {
