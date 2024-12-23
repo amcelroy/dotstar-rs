@@ -27,8 +27,12 @@ impl<const CHARTS: usize, const POINTS: usize> Chart<CHARTS, POINTS> {
             waveforms,
             buffer: [0.0; POINTS],
             mapped: [0; MAPPED_BUFFER],
-            dt_mode: false,
+            dt_mode: true,
         }
+    }
+
+    pub fn dynamic(&mut self, dynamic: bool) {
+        self.dt_mode = dynamic;
     }
 
 	pub fn update(&mut self) {
