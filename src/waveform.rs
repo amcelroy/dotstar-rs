@@ -1,9 +1,51 @@
 use libm;
 
-pub struct Waveform<const POINTS: usize> {
+pub struct WaveformParams {
     amplitude: f32,
     freq: f32,
     phase: f32,
+}
+
+impl WaveformParams {
+    pub fn new(amplitude: f32, freq: f32, phase: f32) -> Self {
+        WaveformParams {
+            amplitude,
+            freq,
+            phase,
+        }
+    }
+
+    pub fn set_amplitude(&mut self, amplitude: f32) {
+        self.amplitude = amplitude;
+    }
+
+    pub fn set_freq(&mut self, freq: f32) {
+        self.freq = freq;
+    }
+
+    pub fn set_phase(&mut self, phase: f32) {
+        self.phase = phase;
+    }
+
+    pub fn set_params(&mut self, w: WaveformParams) {
+        *self = w;
+    }
+
+    pub fn get_amplitude(&self) -> f32 {
+        self.amplitude
+    }
+
+    pub fn get_freq(&self) -> f32 {
+        self.freq
+    }
+
+    pub fn get_phase(&self) -> f32 {
+        self.phase
+    }
+}
+
+pub struct Waveform<const POINTS: usize> {
+    params: WaveformParams,
     data: [f32; POINTS],
     mask: [bool; POINTS],
     mask_i: usize,
@@ -18,11 +60,13 @@ impl<const POINTS: usize> Waveform<POINTS> {
 		Waveform::new(1.0, 1.0, 0.0)		
 	}
 
-	fn new(amplitude: f32, freq: f32, phase: f32) -> Self {
+	pub fn new(amplitude: f32, freq: f32, phase: f32) -> Self {
         Waveform {
-            amplitude,
-            freq,
-            phase,
+            params: WaveformParams {
+                amplitude,
+                freq,
+                phase,
+            },
             data: [0.0; POINTS],
             mask: [true; POINTS],
             mask_i: 0,
@@ -30,16 +74,32 @@ impl<const POINTS: usize> Waveform<POINTS> {
             loops: None,
         }
     }
-	
+
+    pub fn set_params(&mut self, p: WaveformParams) {
+        self.params.set_params(p);
+    }
+
+    pub fn get_amplitude(&self) -> f32 {
+        self.params.get_amplitude()
+    }
+
+    pub fn get_freq(&self) -> f32 {
+        self.params.get_freq()
+    }
+
+    pub fn get_phase(&self) -> f32 {
+        self.params.get_phase()
+    }
+
 	pub fn update(&mut self, t: f32, dt: f32) {
 		for i in 0..POINTS {
-            self.data[i] = self.amplitude*libm::sinf(2.0*PI*self.freq * (t + (i as f32)*dt) + self.phase);
+            self.data[i] = self.get_amplitude()*libm::sinf(2.0*PI*self.get_freq() * (t + (i as f32)*dt) + self.get_phase());
         }
 	}
 
     pub fn update_point(&mut self, t: f32, dt: f32, i: usize) -> Option<f32> {
         if i < POINTS {
-            self.data[i] = self.amplitude*libm::sinf(2.0*PI*self.freq * (t + (i as f32)*dt) + self.phase);
+            self.data[i] = self.get_amplitude()*libm::sinf(2.0*PI*self.get_freq() * (t + (i as f32)*dt) + self.get_phase());
             Some(self.data[i])
         }else{
             None
