@@ -74,6 +74,8 @@ impl<const CHARTS: usize, const POINTS: usize> Dotstar for Chart<CHARTS, POINTS>
     }
 }
 
+/// Convert a float value to Alpha, White, White, White u32 value.
+/// This function also sets the 3 highest bits to 1
 pub fn to_awww(value: f32, fmin: f32, fmax: f32) -> u32 {
     let mut v = value;
     if v < fmin {
