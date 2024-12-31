@@ -66,6 +66,13 @@ impl<const CHARTS: usize, const POINTS: usize> Chart<CHARTS, POINTS> {
         self.mapped[POINTS + 1] = 0xFFFF_FFFF;
     }
    
+    pub fn get_waveform(&mut self, i: usize) -> Option<&mut Waveform<POINTS>> {
+        if i < CHARTS {
+            return Some(&mut self.waveforms[i])
+        }else{
+            None
+        }
+    }
 }
 
 impl<const CHARTS: usize, const POINTS: usize> Dotstar for Chart<CHARTS, POINTS> {

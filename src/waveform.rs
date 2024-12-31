@@ -1,17 +1,29 @@
 use libm;
 
+#[derive(Copy, Clone, Default, Debug)]
 pub struct WaveformParams {
-    amplitude: f32,
-    freq: f32,
-    phase: f32,
+    pub amplitude: f32,
+    pub freq: f32,
+    pub phase: f32,
+    pub offset: f32,
 }
 
 impl WaveformParams {
-    pub fn new(amplitude: f32, freq: f32, phase: f32) -> Self {
+    pub fn new(amplitude: f32, freq: f32, phase: f32, offset: f32) -> Self {
         WaveformParams {
             amplitude,
             freq,
             phase,
+            offset,
+        }
+    }
+
+    pub fn default() -> Self {
+        WaveformParams {
+            amplitude: 1.0,
+            freq: 1.0,
+            phase: 0.0,
+            offset: 0.0,
         }
     }
 
@@ -25,6 +37,10 @@ impl WaveformParams {
 
     pub fn set_phase(&mut self, phase: f32) {
         self.phase = phase;
+    }
+
+    pub fn set_offset(&mut self, offset: f32) {
+        self.offset = offset;
     }
 
     pub fn set_params(&mut self, w: WaveformParams) {
@@ -42,6 +58,10 @@ impl WaveformParams {
     pub fn get_phase(&self) -> f32 {
         self.phase
     }
+
+    pub fn get_offset(&self) -> f32 {
+        self.offset
+    }
 }
 
 pub struct Waveform<const POINTS: usize> {
@@ -57,15 +77,16 @@ const PI: f32 = core::f32::consts::PI;
 
 impl<const POINTS: usize> Waveform<POINTS> {
 	pub fn default() -> Self {
-		Waveform::new(1.0, 1.0, 0.0)		
+		Waveform::new(1.0, 1.0, 0.0, 0.0)		
 	}
 
-	pub fn new(amplitude: f32, freq: f32, phase: f32) -> Self {
+	pub fn new(amplitude: f32, freq: f32, phase: f32, offset: f32) -> Self {
         Waveform {
             params: WaveformParams {
                 amplitude,
                 freq,
                 phase,
+                offset,
             },
             data: [0.0; POINTS],
             mask: [true; POINTS],
@@ -91,15 +112,19 @@ impl<const POINTS: usize> Waveform<POINTS> {
         self.params.get_phase()
     }
 
+    pub fn get_offset(&self) -> f32 {
+        self.params.get_offset()
+    }
+
 	pub fn update(&mut self, t: f32, dt: f32) {
 		for i in 0..POINTS {
-            self.data[i] = self.get_amplitude()*libm::sinf(2.0*PI*self.get_freq() * (t + (i as f32)*dt) + self.get_phase());
+            self.data[i] = self.get_offset() + self.get_amplitude()*libm::sinf(2.0*PI*self.get_freq() * (t + (i as f32)*dt) + self.get_phase());
         }
 	}
 
     pub fn update_point(&mut self, t: f32, dt: f32, i: usize) -> Option<f32> {
         if i < POINTS {
-            self.data[i] = self.get_amplitude()*libm::sinf(2.0*PI*self.get_freq() * (t + (i as f32)*dt) + self.get_phase());
+            self.data[i] = self.get_offset() + self.get_amplitude()*libm::sinf(2.0*PI*self.get_freq() * (t + (i as f32)*dt) + self.get_phase());
             Some(self.data[i])
         }else{
             None
@@ -136,10 +161,11 @@ mod tests {
 
     #[test]
     fn new_waveform() {
-        let waveform = Waveform::<16>::new(1.0, 1.0, 0.0);
+        let waveform = Waveform::<16>::new(1.0, 1.0, 0.0,0.0);
         assert_eq!(waveform.amplitude, 1.0);
         assert_eq!(waveform.freq, 1.0);
         assert_eq!(waveform.phase, 0.0);
+        assert_eq!(waveform.offset, 0.0);
     }
 
     #[test]
@@ -148,11 +174,12 @@ mod tests {
         assert_eq!(waveform.amplitude, 1.0);
         assert_eq!(waveform.freq, 1.0);
         assert_eq!(waveform.phase, 0.0);
+        assert_eq!(waveform.offset, 0.0);
     }   
 
     #[test]
     fn update() {
-        let mut waveform = Waveform::<10>::new(1.0, 1.0, 0.0);
+        let mut waveform = Waveform::<10>::new(1.0, 1.0, 0.0, 0.0);
         waveform.update(0.0, 0.1);
         assert_eq!(waveform.data[0], 0.0);
         assert_eq!(waveform.data[1], 0.58778524);
