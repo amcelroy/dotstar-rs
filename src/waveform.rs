@@ -122,12 +122,12 @@ impl<const POINTS: usize> Waveform<POINTS> {
         }
 	}
 
-    pub fn update_point(&mut self, t: f32, dt: f32, i: usize) -> Option<f32> {
+    pub fn update_point(&mut self, t: f32, dt: f32, i: usize) -> f32 {
         if i < POINTS {
             self.data[i] = self.get_offset() + self.get_amplitude()*libm::sinf(2.0*PI*self.get_freq() * (t + (i as f32)*dt) + self.get_phase());
-            Some(self.data[i])
+            self.data[i]
         }else{
-            None
+            0.0
         }
 	}
 
