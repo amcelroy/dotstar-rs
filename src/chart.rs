@@ -19,42 +19,50 @@ pub enum DynamicMode {
 // TODO: Save commands to flash?
 
 pub struct Chart<const CHARTS: usize, const POINTS: usize> {
-	t: f32,
-    dt: f32,
+	t: [f32; CHARTS],
+    dt: [f32; CHARTS],
 	waveforms: [Waveform<POINTS>; CHARTS],
     buffer: [[f32; POINTS]; CHARTS],
 	mapped: [u32; POINTS],
     enabled: [bool; CHARTS],
-    dt_mode: bool,
+    dt_mode: [bool; CHARTS],
 }
 
 impl<const CHARTS: usize, const POINTS: usize> Chart<CHARTS, POINTS> {
     pub fn new(waveforms: [Waveform<POINTS>; CHARTS]) -> Self {
         Chart {
-            t: 0.0,
-            dt: 1.0/POINTS as f32,
+            t: [0.0 as f32; CHARTS],
+            dt: [1.0/POINTS as f32; CHARTS],
             waveforms,
             buffer: [[0.0; POINTS]; CHARTS],
             mapped: [0; POINTS],
-            dt_mode: true,
+            dt_mode: [true; CHARTS],
             enabled: [true; CHARTS],
         }
     }
 
-    pub fn dynamic(&mut self, dynamic: bool) {
-        self.dt_mode = dynamic;
+    pub fn dynamic(&mut self, dynamic: bool, chart: usize) {
+        if chart < CHARTS {
+            self.dt_mode[chart] = dynamic;
+        }
+    }
+
+    pub fn reset(&mut self) {
+        for j in 0..CHARTS {
+            self.t[j] = 0.0;
+        }
     }
 
 	pub fn update(&mut self) {
         for j in 0..CHARTS {
             for i in 0..POINTS {
-                let results = self.waveforms[j].update_point(self.t, self.dt, i);
+                let results = self.waveforms[j].update_point(self.t[j], self.dt[j], i);
                 self.buffer[j][i] = results;
             }
-        }
 
-        if self.dt_mode{
-            self.t += self.dt;
+            if self.dt_mode[j]{
+                self.t[j] += self.dt[j];
+            }
         }
 	}
 	

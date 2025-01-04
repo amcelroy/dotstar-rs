@@ -27,6 +27,10 @@ impl WaveformParams {
         }
     }
 
+    pub fn get_params(&self) -> WaveformParams {
+        *self
+    }
+
     pub fn set_amplitude(&mut self, amplitude: f32) {
         self.amplitude = amplitude;
     }
@@ -94,6 +98,10 @@ impl<const POINTS: usize> Waveform<POINTS> {
             points_fetched: 0,
             loops: None,
         }
+    }
+
+    pub fn get_params(&self) -> WaveformParams {
+        self.params.get_params()
     }
 
     pub fn set_params(&mut self, p: WaveformParams) {
