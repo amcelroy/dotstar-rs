@@ -18,15 +18,6 @@ impl WaveformParams {
         }
     }
 
-    pub fn default() -> Self {
-        WaveformParams {
-            amplitude: 1.0,
-            freq: 1.0,
-            phase: 0.0,
-            offset: 0.0,
-        }
-    }
-
     pub fn get_params(&self) -> WaveformParams {
         *self
     }
@@ -74,16 +65,11 @@ pub struct Waveform<const POINTS: usize> {
     mask: [bool; POINTS],
     mask_i: usize,
     points_fetched: usize,
-    loops: Option<u8>,
 }
 
 const PI: f32 = core::f32::consts::PI;
 
 impl<const POINTS: usize> Waveform<POINTS> {
-	pub fn default() -> Self {
-		Waveform::new(1.0, 1.0, 0.0, 0.0)		
-	}
-
 	pub fn new(amplitude: f32, freq: f32, phase: f32, offset: f32) -> Self {
         Waveform {
             params: WaveformParams {
@@ -96,7 +82,21 @@ impl<const POINTS: usize> Waveform<POINTS> {
             mask: [true; POINTS],
             mask_i: 0,
             points_fetched: 0,
-            loops: None,
+        }
+    }
+
+    pub fn empty() -> Self {
+        Waveform {
+            params: WaveformParams {
+                amplitude: 0.0,
+                freq: 0.0,
+                phase: 0.0,
+                offset: 0.0,
+            },
+            data: [0.0; POINTS],
+            mask: [true; POINTS],
+            mask_i: 0,
+            points_fetched: 0,
         }
     }
 
@@ -165,24 +165,22 @@ impl<const POINTS: usize> Waveform<POINTS> {
 }
 
 mod tests {
-    use super::*;
-
     #[test]
     fn new_waveform() {
         let waveform = Waveform::<16>::new(1.0, 1.0, 0.0,0.0);
-        assert_eq!(waveform.amplitude, 1.0);
-        assert_eq!(waveform.freq, 1.0);
-        assert_eq!(waveform.phase, 0.0);
-        assert_eq!(waveform.offset, 0.0);
+        assert_eq!(waveform.get_amplitude(), 1.0);
+        assert_eq!(waveform.get_freq(), 1.0);
+        assert_eq!(waveform.get_phase(), 0.0);
+        assert_eq!(waveform.get_offset(), 0.0);
     }
 
     #[test]
     fn new_default_waveform() {
         let waveform = Waveform::<16>::default();
-        assert_eq!(waveform.amplitude, 1.0);
-        assert_eq!(waveform.freq, 1.0);
-        assert_eq!(waveform.phase, 0.0);
-        assert_eq!(waveform.offset, 0.0);
+        assert_eq!(waveform.get_amplitude(), 1.0);
+        assert_eq!(waveform.get_freq(), 1.0);
+        assert_eq!(waveform.get_phase(), 0.0);
+        assert_eq!(waveform.get_offset(), 0.0);
     }   
 
     #[test]

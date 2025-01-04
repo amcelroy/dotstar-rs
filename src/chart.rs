@@ -1,12 +1,7 @@
-use crate::{waveform::{Waveform, WaveformParams}, Dotstar};
+use crate::{waveform::Waveform, Dotstar};
 
 const F_MIN: f32 = 0.0;
 const F_MAX: f32 = 1.0;
-
-struct ChartCommand {
-    pub waveform: usize,
-    pub params: WaveformParams,
-}
 
 #[repr(u8)]
 pub enum DynamicMode {
@@ -31,7 +26,7 @@ pub struct Chart<const CHARTS: usize, const POINTS: usize> {
 impl<const CHARTS: usize, const POINTS: usize> Chart<CHARTS, POINTS> {
     pub fn new(waveforms: [Waveform<POINTS>; CHARTS]) -> Self {
         Chart {
-            t: [0.0 as f32; CHARTS],
+            t: [0.0_f32; CHARTS],
             dt: [1.0/POINTS as f32; CHARTS],
             waveforms,
             buffer: [[0.0; POINTS]; CHARTS],
@@ -90,7 +85,7 @@ impl<const CHARTS: usize, const POINTS: usize> Chart<CHARTS, POINTS> {
         }
 
         // Don't include disabled charts
-        if self.enabled[chart] == false {
+        if !self.enabled[chart] {
             return;
         }
         
@@ -115,7 +110,7 @@ impl<const CHARTS: usize, const POINTS: usize> Chart<CHARTS, POINTS> {
    
     pub fn get_waveform(&mut self, i: usize) -> Option<&mut Waveform<POINTS>> {
         if i < CHARTS {
-            return Some(&mut self.waveforms[i])
+            Some(&mut self.waveforms[i])
         }else{
             None
         }
@@ -132,14 +127,10 @@ impl<const CHARTS: usize, const POINTS: usize> Dotstar for Chart<CHARTS, POINTS>
 /// This function also sets the 3 highest bits to 1
 pub fn to_awww(value: f32, chart: usize) -> u32 {
     let mut v = value;
-    if v < F_MIN {
-        v = F_MIN;
-    } else if v > F_MAX {
-        v = F_MAX;
-    }
+    v = v.clamp(F_MIN, F_MAX);
     let v = (v - F_MIN) / (F_MAX - F_MIN);
     let v = (v*255.0) as u8;
     let mut v = v.clamp(0, 255) as u32;
-    v = v << (chart*8) as u32;
+    v <<= (chart*8) as u32;
     v
 }
