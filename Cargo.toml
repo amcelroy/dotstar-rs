@@ -4,9 +4,17 @@ version = "0.1.0"
 edition = "2021"
 authors = ["Austin McElroy <me@austin.engineer>"]
 
+[lib]
+crate-type = ["rlib", "cdylib"]
+
 [dependencies]
 libm = "0.2"
+heapless = "0.8.0"
+wasm-bindgen = { version = "0.2", optional = true }
+js-sys = { version = "0.3.77", optional = true }
+spin = { version = "0.5.2", optional = true }
+lazy_static = { version = "1.5.0", features = ["spin_no_std"], optional = true }
 
 [features]
-default = []
-wasm = []
+default = ["wasm"]
+wasm = ["js-sys", "lazy_static", "wasm-bindgen", "spin"]

@@ -1,20 +1,18 @@
 #![no_std]
 
+#[cfg(test)]
+pub extern crate std;
+
 pub mod waveform;
 pub mod chart;
+
+//#[cfg(feature = "wasm")]
+pub mod wasm;
 
 #[repr(u32)]
 pub enum Frames {
     StartFrame = 0x0000_0000,
     EndFrame = 0xFFFF_FFFF,
-}
-
-pub trait Dotstar {
-    /// This function should return a slice of bytes that contains:
-    /// Start frame (4 bytes)
-    /// LED data (4 bytes per LED)
-    /// End frame (4 bytes)
-    fn generate_frame(&self) -> &[u8];
 }
 
 pub fn format_led(r: u8, g: u8, b: u8, brightness: u8) -> u32 {

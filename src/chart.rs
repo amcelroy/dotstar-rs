@@ -1,4 +1,4 @@
-use crate::{waveform::Waveform, Dotstar};
+use crate::waveform::Waveform;
 
 const F_MIN: f32 = 0.0;
 const F_MAX: f32 = 1.0;
@@ -13,43 +13,50 @@ pub enum DynamicMode {
 // TODO: Heapless vec of commands that users can enqueu and repeat
 // TODO: Save commands to flash?
 
-pub struct Chart<const CHARTS: usize, const POINTS: usize> {
-	t: [f32; CHARTS],
-    dt: [f32; CHARTS],
-	waveforms: [Waveform<POINTS>; CHARTS],
-    buffer: [[f32; POINTS]; CHARTS],
+pub struct Chart<const WAVEFORMS: usize, const POINTS: usize> {
+	t: [f32; WAVEFORMS],
+    dt: [f32; WAVEFORMS],
+	waveforms: [Waveform<POINTS>; WAVEFORMS],
+    buffer: [[f32; POINTS]; WAVEFORMS],
 	mapped: [u32; POINTS],
-    enabled: [bool; CHARTS],
-    dt_mode: [bool; CHARTS],
+    enabled: [bool; WAVEFORMS],
+    dt_mode: [bool; WAVEFORMS],
 }
 
-impl<const CHARTS: usize, const POINTS: usize> Chart<CHARTS, POINTS> {
-    pub fn new(waveforms: [Waveform<POINTS>; CHARTS]) -> Self {
+impl<const WAVEFORMS: usize, const POINTS: usize> Chart<WAVEFORMS, POINTS> {
+    pub fn new(waveforms: [Waveform<POINTS>; WAVEFORMS]) -> Self {
         Chart {
-            t: [0.0_f32; CHARTS],
-            dt: [1.0/POINTS as f32; CHARTS],
+            t: [0.0_f32; WAVEFORMS],
+            dt: [1.0/POINTS as f32; WAVEFORMS],
             waveforms,
-            buffer: [[0.0; POINTS]; CHARTS],
+            buffer: [[0.0; POINTS]; WAVEFORMS],
             mapped: [0; POINTS],
-            dt_mode: [true; CHARTS],
-            enabled: [true; CHARTS],
+            dt_mode: [true; WAVEFORMS],
+            enabled: [true; WAVEFORMS],
         }
     }
 
-    pub fn dynamic(&mut self, dynamic: bool, chart: usize) {
-        if chart < CHARTS {
-            self.dt_mode[chart] = dynamic;
+    pub fn dynamic(&mut self, dynamic: bool, waveform: usize) {
+        if waveform < WAVEFORMS {
+            self.dt_mode[waveform] = dynamic;
+        }
+    }
+
+    pub fn set_dt(&mut self, dt: f32, waveform: usize) {
+        if waveform < WAVEFORMS {
+            self.dt[waveform] = dt;
         }
     }
 
     pub fn reset(&mut self) {
-        for j in 0..CHARTS {
+        for j in 0..WAVEFORMS {
             self.t[j] = 0.0;
         }
     }
 
+    // Update the charts and increment time
 	pub fn update(&mut self) {
-        for j in 0..CHARTS {
+        for j in 0..WAVEFORMS {
             for i in 0..POINTS {
                 let results = self.waveforms[j].update_point(self.t[j], self.dt[j], i);
                 self.buffer[j][i] = results;
@@ -61,6 +68,7 @@ impl<const CHARTS: usize, const POINTS: usize> Chart<CHARTS, POINTS> {
         }
 	}
 	
+    /// Get the mapped buffer in bytes
 	pub fn bytes(&self) -> &[u8] {
         let len = 4 * POINTS;
         let ptr = self.mapped.as_ptr() as *const u8;
@@ -69,18 +77,37 @@ impl<const CHARTS: usize, const POINTS: usize> Chart<CHARTS, POINTS> {
         }
 	}
 
+    /// Clear the mapped buffer
+    pub fn clear_mapped(&mut self) {
+        for i in 0..POINTS {
+            self.mapped[i] = 0;
+        }
+    }
+
+    /// Get the mapped buffer
+    pub fn mapped(&self) -> &[u32] {
+        &self.mapped
+    }
+
+    /// Copy the mapped buffer to a mutable slice
+    pub fn mapped_from(&self, m: &mut [u32]) {
+        for (i, v) in self.mapped.iter().enumerate() {
+            m[i] = *v;
+        }
+    }
+
     /// Enable or disable a chart.
     pub fn enable(&mut self, chart: usize, enable: bool) {
-        if chart < CHARTS {
+        if chart < WAVEFORMS {
             self.enabled[chart] = enable;
         }
     }
 
     /// Map a chart to a u32 value using a closure. The maps OR'd together for the different charts,
     /// so reset should be called on the first mapping to clear the mapping buffer.
-    pub fn map(&mut self, chart: usize, reset: bool, mut map_algorithm: impl FnMut(f32, usize) -> u32) {
+    pub fn map(&mut self, chart: usize, mut map_algorithm: impl FnMut(f32, usize) -> u32) {
         // Make sure chart is within bounds
-        if chart >= CHARTS {
+        if chart >= WAVEFORMS {
             return;
         }
 
@@ -92,9 +119,6 @@ impl<const CHARTS: usize, const POINTS: usize> Chart<CHARTS, POINTS> {
         let ref_buffer = self.buffer[chart];
 
         for (i, v) in ref_buffer.iter().enumerate() {
-            if reset {
-                self.mapped[i] = 0;
-            }
             let x = map_algorithm(*v, chart);
             self.mapped[i] |= x;
         }
@@ -108,18 +132,13 @@ impl<const CHARTS: usize, const POINTS: usize> Chart<CHARTS, POINTS> {
         }
     }
    
+    /// Get a waveform by index
     pub fn get_waveform(&mut self, i: usize) -> Option<&mut Waveform<POINTS>> {
-        if i < CHARTS {
+        if i < WAVEFORMS {
             Some(&mut self.waveforms[i])
         }else{
             None
         }
-    }
-}
-
-impl<const CHARTS: usize, const POINTS: usize> Dotstar for Chart<CHARTS, POINTS> {
-    fn generate_frame(&self) -> &[u8] {
-        self.bytes()
     }
 }
 
