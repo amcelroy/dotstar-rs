@@ -9,37 +9,28 @@ pub mod chart;
 //#[cfg(feature = "wasm")]
 pub mod wasm;
 
+const F_MIN: f32 = -1.0;
+const F_MAX: f32 = 1.0;
+
 #[repr(u32)]
 pub enum Frames {
     StartFrame = 0x0000_0000,
     EndFrame = 0xFFFF_FFFF,
 }
 
-pub fn format_led(r: u8, g: u8, b: u8, brightness: u8) -> u32 {
-    let mut global_brightness = brightness & 0x1F; // global brightness is 5 bits
-    global_brightness |= 0xE0; // global brightness is in the upper 3 bits
-    u32::from_be_bytes([global_brightness, b, g, r])
+/// Convert a float value to Alpha, White, White, White u32 value.
+/// This function also sets the 3 highest bits to 1
+pub fn to_awww(value: f32, chart: usize) -> u32 {
+    let mut v = value;
+    v = v.clamp(F_MIN, F_MAX);
+    let v = (v - F_MIN) / (F_MAX - F_MIN);
+    let v = (v*255.0) as u8;
+    let mut v = v.clamp(0, 255) as u32;
+    v <<= (chart*8) as u32;
+    v
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::format_led;
 
-    #[test]
-    fn test_format_led() {
-        let led = format_led(0x00, 0x00, 0x00, 0x00);
-        assert_eq!(led, 0xE0000000);
-
-        let led = format_led(0xFF, 0xFF, 0xFF, 0xFF);
-        assert_eq!(led, 0xFFFFFFFF);
-
-        let led = format_led(0xFF, 0x00, 0x00, 0x1F);
-        assert_eq!(led, 0xFF0000FF);
-
-        let led = format_led(0x00, 0xFF, 0x00, 0x1F);
-        assert_eq!(led, 0xFF00FF00);
-
-        let led = format_led(0x00, 0x00, 0xFF, 0x1F);
-        assert_eq!(led, 0xFFFF0000);
-    }
 }

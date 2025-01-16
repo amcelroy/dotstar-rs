@@ -1,13 +1,20 @@
 use crate::waveform::Waveform;
 
-const F_MIN: f32 = 0.0;
-const F_MAX: f32 = 1.0;
+#[cfg(feature = "wasm")]
+use wasm_bindgen::prelude::wasm_bindgen;
 
 #[repr(u8)]
 pub enum DynamicMode {
     Stopped = 0,
     Moving = 1,
     InPlace = 2,
+}
+
+#[derive(Copy, Clone, Debug, PartialEq)]
+#[cfg_attr(feature = "wasm", wasm_bindgen)]
+pub enum Endian {
+    Big,
+    Little,
 }
 
 // TODO: Heapless vec of commands that users can enqueu and repeat
@@ -20,7 +27,6 @@ pub struct Chart<const WAVEFORMS: usize, const POINTS: usize> {
     buffer: [[f32; POINTS]; WAVEFORMS],
 	mapped: [u32; POINTS],
     enabled: [bool; WAVEFORMS],
-    dt_mode: [bool; WAVEFORMS],
 }
 
 impl<const WAVEFORMS: usize, const POINTS: usize> Chart<WAVEFORMS, POINTS> {
@@ -31,18 +37,11 @@ impl<const WAVEFORMS: usize, const POINTS: usize> Chart<WAVEFORMS, POINTS> {
             waveforms,
             buffer: [[0.0; POINTS]; WAVEFORMS],
             mapped: [0; POINTS],
-            dt_mode: [true; WAVEFORMS],
             enabled: [true; WAVEFORMS],
         }
     }
 
-    pub fn dynamic(&mut self, dynamic: bool, waveform: usize) {
-        if waveform < WAVEFORMS {
-            self.dt_mode[waveform] = dynamic;
-        }
-    }
-
-    pub fn set_dt(&mut self, dt: f32, waveform: usize) {
+    pub fn set_dt(&mut self, waveform: usize, dt: f32) {
         if waveform < WAVEFORMS {
             self.dt[waveform] = dt;
         }
@@ -62,10 +61,11 @@ impl<const WAVEFORMS: usize, const POINTS: usize> Chart<WAVEFORMS, POINTS> {
                 self.buffer[j][i] = results;
             }
 
-            if self.dt_mode[j]{
-                self.t[j] += self.dt[j];
-            }
+            self.t[j] += self.dt[j];
         }
+
+        // Reset the mapped buffer
+        self.clear_mapped();
 	}
 	
     /// Get the mapped buffer in bytes
@@ -96,13 +96,6 @@ impl<const WAVEFORMS: usize, const POINTS: usize> Chart<WAVEFORMS, POINTS> {
         }
     }
 
-    /// Enable or disable a chart.
-    pub fn enable(&mut self, chart: usize, enable: bool) {
-        if chart < WAVEFORMS {
-            self.enabled[chart] = enable;
-        }
-    }
-
     /// Map a chart to a u32 value using a closure. The maps OR'd together for the different charts,
     /// so reset should be called on the first mapping to clear the mapping buffer.
     pub fn map(&mut self, chart: usize, mut map_algorithm: impl FnMut(f32, usize) -> u32) {
@@ -124,11 +117,14 @@ impl<const WAVEFORMS: usize, const POINTS: usize> Chart<WAVEFORMS, POINTS> {
         }
     }
 
-    /// Configure the 3 highest bits to 1 as per Dotstar protocol, convert to big endian
-    pub fn finalize(&mut self) {
+    /// Configure the 3 highest bits to 1 as per Dotstar protocol, convert to big or little endian
+    pub fn finalize(&mut self, endian: Endian) {
         for i in 0..POINTS {
             self.mapped[i] |= 0xF000_0000; // Set the 3 highest bits to 1 as per Dotstar protocol
-            self.mapped[i] = self.mapped[i].to_be();
+            match endian {
+                Endian::Big => self.mapped[i] = self.mapped[i].to_be(),
+                Endian::Little => self.mapped[i] = self.mapped[i].to_le(),
+            }
         }
     }
    
@@ -140,16 +136,4 @@ impl<const WAVEFORMS: usize, const POINTS: usize> Chart<WAVEFORMS, POINTS> {
             None
         }
     }
-}
-
-/// Convert a float value to Alpha, White, White, White u32 value.
-/// This function also sets the 3 highest bits to 1
-pub fn to_awww(value: f32, chart: usize) -> u32 {
-    let mut v = value;
-    v = v.clamp(F_MIN, F_MAX);
-    let v = (v - F_MIN) / (F_MAX - F_MIN);
-    let v = (v*255.0) as u8;
-    let mut v = v.clamp(0, 255) as u32;
-    v <<= (chart*8) as u32;
-    v
 }
