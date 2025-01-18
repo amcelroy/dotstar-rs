@@ -40,15 +40,6 @@ pub fn argb_array() -> js_sys::Uint32Array {
     return js_sys::Uint32Array::from(&x[..]);
 }
 
-#[wasm_bindgen]
-pub fn set_dt(waveform: js_sys::Number, dt: js_sys::Number) {
-    if let Some(dt) = dt.as_f64() {
-        if let Some(g) = CHART.try_lock() {
-            g.as_ref().unwrap().borrow_mut().set_dt(waveform.as_f64().unwrap() as usize, dt as f32);
-        }
-    }
-}
-
 /// Update a waveforms
 #[wasm_bindgen]
 pub fn update_waveform(waveform: js_sys::Number, params: WaveformParams) {

@@ -41,12 +41,6 @@ impl<const WAVEFORMS: usize, const POINTS: usize> Chart<WAVEFORMS, POINTS> {
         }
     }
 
-    pub fn set_dt(&mut self, waveform: usize, dt: f32) {
-        if waveform < WAVEFORMS {
-            self.dt[waveform] = dt;
-        }
-    }
-
     pub fn reset(&mut self) {
         for j in 0..WAVEFORMS {
             self.t[j] = 0.0;
