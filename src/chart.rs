@@ -22,7 +22,6 @@ pub enum Endian {
 
 pub struct Chart<const WAVEFORMS: usize, const POINTS: usize> {
 	t: [f32; WAVEFORMS],
-    dt: [f32; WAVEFORMS],
 	waveforms: [Waveform<POINTS>; WAVEFORMS],
     buffer: [[f32; POINTS]; WAVEFORMS],
 	mapped: [u32; POINTS],
@@ -33,7 +32,6 @@ impl<const WAVEFORMS: usize, const POINTS: usize> Chart<WAVEFORMS, POINTS> {
     pub fn new(waveforms: [Waveform<POINTS>; WAVEFORMS]) -> Self {
         Chart {
             t: [0.0_f32; WAVEFORMS],
-            dt: [1.0/POINTS as f32; WAVEFORMS],
             waveforms,
             buffer: [[0.0; POINTS]; WAVEFORMS],
             mapped: [0; POINTS],
@@ -50,12 +48,13 @@ impl<const WAVEFORMS: usize, const POINTS: usize> Chart<WAVEFORMS, POINTS> {
     // Update the charts and increment time
 	pub fn update(&mut self) {
         for j in 0..WAVEFORMS {
+            let dt = self.waveforms[j].params().dt;
             for i in 0..POINTS {
-                let results = self.waveforms[j].update_point(self.t[j], self.dt[j], i);
+                let results = self.waveforms[j].update_point(self.t[j], dt, i);
                 self.buffer[j][i] = results;
             }
 
-            self.t[j] += self.dt[j];
+            self.t[j] += dt;
         }
 
         // Reset the mapped buffer

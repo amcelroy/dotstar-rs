@@ -16,5 +16,5 @@ spin = { version = "0.5.2", optional = true }
 lazy_static = { version = "1.5.0", features = ["spin_no_std"], optional = true }
 
 [features]
-default = ["wasm"]
+default = []
 wasm = ["js-sys", "lazy_static", "wasm-bindgen", "spin"]

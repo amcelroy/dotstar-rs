@@ -20,12 +20,14 @@ pub struct WaveformParams {
     pub freq: f32,
     pub phase: f32,
     pub offset: f32,
+    pub dt: f32,
 }
 
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
 impl WaveformParams {
-    pub fn new(amplitude: f32, freq: f32, phase: f32, offset: f32) -> Self {
+    pub fn new(dt:f32, amplitude: f32, freq: f32, phase: f32, offset: f32) -> Self {
         WaveformParams {
+            dt,
             amplitude,
             freq,
             phase,
@@ -35,6 +37,10 @@ impl WaveformParams {
 
     pub fn get(&self) -> WaveformParams {
         *self
+    }
+
+    pub fn set_dt(&mut self, dt: f32) {
+        self.dt = dt;
     }
 
     pub fn set_amplitude(&mut self, amplitude: f32) {
@@ -73,6 +79,10 @@ impl WaveformParams {
     pub fn get_offset(&self) -> f32 {
         self.offset
     }
+
+    pub fn get_dt(&self) -> f32 {
+        self.dt
+    }
 }
 
 #[derive(Copy, Clone, Debug)]
@@ -99,9 +109,10 @@ impl<const POINTS: usize> Default for Waveform<POINTS> {
 }
 
 impl<const POINTS: usize> Waveform<POINTS> {
-	pub fn new(amplitude: f32, freq: f32, phase: f32, offset: f32, waveform_type: WaveformType) -> Self {
+	pub fn new(dt:f32, amplitude: f32, freq: f32, phase: f32, offset: f32, waveform_type: WaveformType) -> Self {
         Waveform {
             params: WaveformParams {
+                dt,
                 amplitude,
                 freq,
                 phase,
@@ -167,11 +178,9 @@ impl<const POINTS: usize> Waveform<POINTS> {
 }
 
 mod tests {
-    use super::*;
-
     #[test]
     fn new_waveform() {
-        let waveform = Waveform::<16>::new(1.0, 1.0, 0.0,0.0, WaveformType::Sine);
+        let waveform = Waveform::<16>::new(1.0, 1.0, 1.0, 0.0,0.0, WaveformType::Sine);
         assert_eq!(waveform.params().get_amplitude(), 1.0);
         assert_eq!(waveform.params().get_freq(), 1.0);
         assert_eq!(waveform.params().get_phase(), 0.0);
@@ -191,7 +200,7 @@ mod tests {
     // Test sinusoidal waveform
     #[test]
     fn update_sine() {
-        let mut waveform = Waveform::<10>::new(1.0, 1.0, 0.0, 0.0, WaveformType::Sine);
+        let mut waveform = Waveform::<10>::new(0.1, 1.0, 1.0, 0.0, 0.0, WaveformType::Sine);
         waveform.update(0.0, 0.1);
         assert_eq!(waveform.data[0], 0.0);
         assert_eq!(waveform.data[1], 0.58778524);
@@ -208,7 +217,7 @@ mod tests {
     // Test square waveform
     #[test]
     fn update_square() {
-        let mut waveform = Waveform::<10>::new(1.0, 1.0, 0.0, 0.0, WaveformType::Square);
+        let mut waveform = Waveform::<10>::new(0.1, 1.0, 1.0, 0.0, 0.0, WaveformType::Square);
         waveform.update(0.0, 0.1);
         assert_eq!(waveform.data[0], 1.0);
         assert_eq!(waveform.data[1], 1.0);
@@ -225,7 +234,7 @@ mod tests {
     // Test triangle waveform
     #[test]
     fn update_triangle() {
-        let mut waveform = Waveform::<20>::new(1.0, 1.0, 0.0, 0.0, WaveformType::Triangle);
+        let mut waveform = Waveform::<20>::new(0.1, 1.0, 1.0, 0.0, 0.0, WaveformType::Triangle);
         waveform.update(0.0, 1.0/20.0);
         assert_eq!(waveform.data[0], 0.0);
         assert!((0.19..0.21).contains(&waveform.data[1]));

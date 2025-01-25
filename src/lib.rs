@@ -6,7 +6,7 @@ pub extern crate std;
 pub mod waveform;
 pub mod chart;
 
-//#[cfg(feature = "wasm")]
+#[cfg(feature = "wasm")]
 pub mod wasm;
 
 const F_MIN: f32 = -1.0;
