@@ -11,6 +11,8 @@ const WAVEFORMS: usize = 3;
 // Change to match your dotstar LED count
 const POINTS: usize = 32;
 
+const DT: f32 = 1.0 / POINTS as f32;
+
 lazy_static!{
     static ref CHART: Mutex<Option<RefCell<Chart<WAVEFORMS, POINTS>>>> = Mutex::new(None);
 }
@@ -19,9 +21,9 @@ lazy_static!{
 #[wasm_bindgen]
 pub fn init() {
     let waveforms = [
-        Waveform::<POINTS>::new(0.5, 1.0, 0.0, 0.0, WaveformType::Sine), 
-        Waveform::<POINTS>::new(0.5, 1.0, 1.0, 0.0, WaveformType::Sine),
-        Waveform::<POINTS>::new(0.5, 1.0, 1.5, 0.0, WaveformType::Sine),
+        Waveform::<POINTS>::new(DT, 0.5, 1.0, 0.0, 0.0, WaveformType::Sine), 
+        Waveform::<POINTS>::new(DT, 0.5, 1.0, 1.0, 0.0, WaveformType::Sine),
+        Waveform::<POINTS>::new(DT, 0.5, 1.0, 1.5, 0.0, WaveformType::Sine),
     ];
 
     let chart = Chart::new(waveforms);
