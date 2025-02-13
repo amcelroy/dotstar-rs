@@ -157,11 +157,6 @@ impl<const POINTS: usize> Waveform<POINTS> {
         }
 	}
 
-    pub fn update(&mut self, t: f32, dt: f32) {
-        for i in 0..POINTS {
-            self.data[i] = self.update_point(t, dt, i);
-        }
-    }
 
 	pub fn reset(&mut self) {
 		for i in 0..POINTS {

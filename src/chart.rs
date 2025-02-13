@@ -53,8 +53,9 @@ impl<const WAVEFORMS: usize, const POINTS: usize> Chart<WAVEFORMS, POINTS> {
                 let results = self.waveforms[j].update_point(self.t[j], dt, i);
                 self.buffer[j][i] = results;
             }
+            
 
-            self.t[j] += dt;
+            self.t[j] += dt.abs();
         }
 
         // Reset the mapped buffer
