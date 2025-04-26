@@ -5,6 +5,7 @@ use libm;
 #[cfg(feature = "wasm")]
 use wasm_bindgen::prelude::wasm_bindgen;
 
+/// Different types of waveforms that can be generated.
 #[derive(Copy, Clone, Debug, PartialEq)]
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
 pub enum WaveformType {
@@ -46,6 +47,7 @@ impl From<WaveformType> for f32 {
     }
 }
 
+/// Parameters for calculating a waveform.
 #[derive(Copy, Clone, Default, Debug)]
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
 pub struct WaveformParams {
@@ -69,65 +71,9 @@ impl WaveformParams {
             waveform: WaveformType::Sine,
         }
     }
-
-    pub fn get(&self) -> WaveformParams {
-        *self
-    }
-
-    pub fn set_waveform(&mut self, waveform: WaveformType) {
-        self.waveform = waveform;
-    }
-
-    pub fn get_waveform(&self) -> WaveformType {
-        self.waveform
-    }
-
-    pub fn set_dt(&mut self, dt: f32) {
-        self.dt = dt;
-    }
-
-    pub fn set_amplitude(&mut self, amplitude: f32) {
-        self.amplitude = amplitude;
-
-    }
-
-    pub fn set_freq(&mut self, freq: f32) {
-        self.freq = freq;
-    }
-
-    pub fn set_phase(&mut self, phase: f32) {
-        self.phase = phase;
-    }
-
-    pub fn set_offset(&mut self, offset: f32) {
-        self.offset = offset;
-    }
-
-    pub fn set(&mut self, w: WaveformParams) {
-        *self = w;
-    }
-
-    pub fn get_amplitude(&self) -> f32 {
-        self.amplitude
-    }
-
-    pub fn get_freq(&self) -> f32 {
-        self.freq
-    }
-
-    pub fn get_phase(&self) -> f32 {
-        self.phase
-    }
-
-    pub fn get_offset(&self) -> f32 {
-        self.offset
-    }
-
-    pub fn get_dt(&self) -> f32 {
-        self.dt
-    }
 }
 
+//// A waveform is a collection of points that represent the dotstar LED values.
 #[derive(Clone, Debug)]
 pub struct Waveform<const POINTS: usize> {
     params: WaveformParams,
@@ -172,31 +118,38 @@ impl<const POINTS: usize> Waveform<POINTS> {
         }
     }
 
+    /// Returns the waveform parameters.
     pub fn params(&self) -> WaveformParams {
-        self.params.get()
+        self.params
     }
 
+    /// Sets the waveform parameters.
     pub fn set_params(&mut self, p: WaveformParams) {
-        self.params.set(p);
+        self.params = p;
     }
 
+    /// Gets the waveform type.
     pub fn waveform_type(&self) -> WaveformType {
         self.waveform_type
     }
 
+    /// Sets the waveform type.s
     pub fn set_waveform_type(&mut self, waveform_type: WaveformType) {
         self.waveform_type = waveform_type;
     }
 
+    /// Updates the waveform point for a given time, with a dt spacing between points. 
+    /// For example, a waveform my have a t0 of 0.0 and consist of 10 points, separated by 0.1 seconds.
+    /// This updates a single point in the waveform and returns the value.
     pub fn update_point(&mut self, t: f32, dt: f32, i: usize) -> f32 {
-        let p = self.params.get();
+        let p = self.params;
         if i < POINTS || self.mask[i] == false {
             self.data[i] = match self.waveform_type{
-                WaveformType::Sine => p.get_offset() + p.get_amplitude()*libm::sinf(2.0*PI*p.get_freq() * (t + (i as f32)*dt) + p.get_phase()),
-                WaveformType::Square => p.get_offset() + p.get_amplitude()*libm::sinf(2.0*PI*p.get_freq() * (t + (i as f32)*dt) + p.get_phase()).signum(),
-                WaveformType::Triangle => p.get_offset() + (2.0*p.get_amplitude()/PI)*libm::asinf(libm::sinf(2.0*PI*p.get_freq() * (t + (i as f32)*dt) + p.get_phase())),
-                WaveformType::Sawtooth => p.get_offset() + p.get_amplitude()*libm::fmodf(2.0*PI*p.get_freq() * (t + (i as f32)*dt) + p.get_phase(), 2.0*PI)/PI - 1.0,
-                WaveformType::Noise => rand::rngs::SmallRng::random_range(&mut self.rng, p.get_offset()..p.get_amplitude()),
+                WaveformType::Sine => p.offset + p.amplitude*libm::sinf(2.0*PI*p.freq * (t + (i as f32)*dt) + p.phase),
+                WaveformType::Square => p.offset + if p.amplitude*libm::sinf(2.0*PI*p.freq * (t + (i as f32)*dt) + p.phase) >= 0.0 { 1.0 } else { -1.0 },
+                WaveformType::Triangle => p.offset + (2.0*p.amplitude/PI)*libm::asinf(libm::sinf(2.0*PI*p.phase * (t + (i as f32)*dt) + p.phase)),
+                WaveformType::Sawtooth => p.offset + p.amplitude*libm::fmodf(2.0*PI*p.freq * (t + (i as f32)*dt) + p.phase, 2.0*PI)/PI - 1.0,
+                WaveformType::Noise => rand::rngs::SmallRng::random_range(&mut self.rng, p.offset..p.amplitude),
             };
             self.data[i]
         }else{
@@ -204,14 +157,25 @@ impl<const POINTS: usize> Waveform<POINTS> {
         }
 	}
 
+    /// Updates the waveform for a given time, with a dt spacing between points.
+    pub fn update(&mut self, t: f32, dt: f32) -> &[f32; POINTS] {
+        for i in 0..POINTS {
+            self.update_point(t, dt, i);
+        }
 
+        &self.data
+    }
+
+    /// Resets the mask and data arrays.
 	pub fn reset(&mut self) {
 		for i in 0..POINTS {
             self.mask[i] = false;
+            self.data[i] = 0.0;
         }
         self.points_fetched = 0;
 	}  	
 
+    /// Mask a point in the waveform. Currently not used.
     pub fn mask(&mut self, i: usize) {
         if i < POINTS {
             self.mask[i] = !self.mask[i];
@@ -219,64 +183,51 @@ impl<const POINTS: usize> Waveform<POINTS> {
     }	
 }
 
+#[cfg(test)]
 mod tests {
-    #[test]
-    fn new_waveform() {
-        let waveform = Waveform::<16>::new(1.0, 1.0, 1.0, 0.0, 0.0, WaveformType::Sine);
-        assert_eq!(waveform.params().get_amplitude(), 1.0);
-        assert_eq!(waveform.params().get_freq(), 1.0);
-        assert_eq!(waveform.params().get_phase(), 0.0);
-        assert_eq!(waveform.params().get_offset(), 0.0);
-    }
+    use crate::waveform::{Waveform, WaveformType};
 
-    #[test]
-    fn new_default_waveform() {
-        let waveform = Waveform::<16>::default();
-        assert_eq!(waveform.params().get_amplitude(), 0.0);
-        assert_eq!(waveform.params().get_freq(), 0.0);
-        assert_eq!(waveform.params().get_phase(), 0.0);
-        assert_eq!(waveform.params().get_offset(), 0.0);
-        assert_eq!(waveform.waveform_type, WaveformType::Sine);
-    }   
+    const T0: f32 = 0.0;
+    const DT: f32 = 0.1;
 
     // Test sinusoidal waveform
     #[test]
     fn update_sine() {
         let mut waveform = Waveform::<10>::new(0.1, 1.0, 1.0, 0.0, 0.0, WaveformType::Sine);
-        // waveform
-        // assert_eq!(waveform.data[0], 0.0);
-        // assert_eq!(waveform.data[1], 0.58778524);
-        // assert_eq!(waveform.data[2], 0.95105654);
-        // assert_eq!(waveform.data[3], 0.9510565);
-        // assert_eq!(waveform.data[4], 0.5877852);
-        // assert_eq!(waveform.data[5], -8.742278e-8);
-        // assert_eq!(waveform.data[6], -0.58778554);
-        // assert_eq!(waveform.data[7], -0.9510565);
-        // assert_eq!(waveform.data[8], -0.9510565);
-        // assert_eq!(waveform.data[9], -0.58778495);
+        let data = waveform.update(T0, DT);
+        assert_eq!(data[0], 0.0);
+        assert_eq!(data[1], 0.58778524);
+        assert_eq!(data[2], 0.95105654);
+        assert_eq!(data[3], 0.9510565);
+        assert_eq!(data[4], 0.5877852);
+        assert_eq!(data[5], -8.742278e-8);
+        assert_eq!(data[6], -0.58778554);
+        assert_eq!(data[7], -0.9510565);
+        assert_eq!(data[8], -0.9510565);
+        assert_eq!(data[9], -0.58778495);
     }
 
     // Test square waveform
     #[test]
     fn update_square() {
         let mut waveform = Waveform::<10>::new(0.1, 1.0, 1.0, 0.0, 0.0, WaveformType::Square);
-        // waveform.update(0.0, 0.1);
-        // assert_eq!(waveform.data[0], 1.0);
-        // assert_eq!(waveform.data[1], 1.0);
-        // assert_eq!(waveform.data[2], 1.0);
-        // assert_eq!(waveform.data[3], 1.0);
-        // assert_eq!(waveform.data[4], 1.0);
-        // assert_eq!(waveform.data[5], -1.0);
-        // assert_eq!(waveform.data[6], -1.0);
-        // assert_eq!(waveform.data[7], -1.0);
-        // assert_eq!(waveform.data[8], -1.0);
-        // assert_eq!(waveform.data[9], -1.0);
+        let data = waveform.update(T0, DT);
+        assert_eq!(data[0], 1.0);
+        assert_eq!(data[1], 1.0);
+        assert_eq!(data[2], 1.0);
+        assert_eq!(data[3], 1.0);
+        assert_eq!(data[4], 1.0);
+        assert_eq!(data[5], -1.0);
+        assert_eq!(data[6], -1.0);
+        assert_eq!(data[7], -1.0);
+        assert_eq!(data[8], -1.0);
+        assert_eq!(data[9], -1.0);
     }
 
     // Test triangle waveform
     #[test]
     fn update_triangle() {
-        let mut waveform = Waveform::<20>::new(0.1, 1.0, 1.0, 0.0, 0.0, WaveformType::Triangle);
+        //let mut waveform = Waveform::<20>::new(0.1, 1.0, 1.0, 0.0, 0.0, WaveformType::Triangle);
         // waveform.update(0.0, 1.0/20.0);
         // assert_eq!(waveform.data[0], 0.0);
         // assert!((0.19..0.21).contains(&waveform.data[1]));

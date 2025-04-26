@@ -20,6 +20,7 @@ pub enum Endian {
 // TODO: Heapless vec of commands that users can enqueu and repeat
 // TODO: Save commands to flash?
 
+/// A Chart is a collection of waveforms that are combined into a single buffer.
 pub struct Chart<const WAVEFORMS: usize, const POINTS: usize> {
 	t: [f32; WAVEFORMS],
 	waveforms: [Waveform<POINTS>; WAVEFORMS],
@@ -54,8 +55,8 @@ impl<const WAVEFORMS: usize, const POINTS: usize> Chart<WAVEFORMS, POINTS> {
                 self.buffer[j][i] = results;
             }
             
-
-            self.t[j] += dt.abs();
+            let dt_abs = if dt < 0.0 { -1.0 * dt } else { dt };
+            self.t[j] += dt_abs;
         }
 
         // Reset the mapped buffer

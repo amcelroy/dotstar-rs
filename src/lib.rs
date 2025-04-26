@@ -1,4 +1,4 @@
-#![no_std]
+#![cfg_attr(not(test), no_std)]
 
 #[cfg(test)]
 pub extern crate std;
@@ -8,6 +8,12 @@ pub mod chart;
 
 #[cfg(feature = "wasm")]
 pub mod wasm;
+
+#[cfg(not(test))]
+#[panic_handler]
+fn panic(_info: &core::panic::PanicInfo) -> ! {
+    loop {}
+}
 
 const F_MIN: f32 = -1.0;
 const F_MAX: f32 = 1.0;
@@ -28,9 +34,4 @@ pub fn to_awww(value: f32, chart: usize) -> u32 {
     let mut v = v.clamp(0, 255) as u32;
     v <<= (chart*8) as u32;
     v
-}
-
-#[cfg(test)]
-mod tests {
-
 }
