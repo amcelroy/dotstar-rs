@@ -1,3 +1,5 @@
+use rand::prelude::*;
+
 use libm;
 
 #[cfg(feature = "wasm")]
@@ -6,11 +8,42 @@ use wasm_bindgen::prelude::wasm_bindgen;
 #[derive(Copy, Clone, Debug, PartialEq)]
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
 pub enum WaveformType {
-    Sine,
+    Sine, 
     Square,
     Triangle,
     Sawtooth,
     Noise,
+}
+
+impl Default for WaveformType {
+    fn default() -> Self {
+        WaveformType::Sine
+    }
+}
+
+impl From<f32> for WaveformType {
+    fn from(value: f32) -> Self {
+        match value as u8 {
+            0 => WaveformType::Sine,
+            1 => WaveformType::Square,
+            2 => WaveformType::Triangle,
+            3 => WaveformType::Sawtooth,
+            4 => WaveformType::Noise,
+            _ => WaveformType::Sine,
+        }
+    }
+}
+
+impl From<WaveformType> for f32 {
+    fn from(value: WaveformType) -> Self {
+        match value {
+            WaveformType::Sine => 0.0,
+            WaveformType::Square => 1.0,
+            WaveformType::Triangle => 2.0,
+            WaveformType::Sawtooth => 3.0,
+            WaveformType::Noise => 4.0,
+        }
+    }
 }
 
 #[derive(Copy, Clone, Default, Debug)]
@@ -21,6 +54,7 @@ pub struct WaveformParams {
     pub phase: f32,
     pub offset: f32,
     pub dt: f32,
+    pub waveform: WaveformType,
 }
 
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
@@ -32,11 +66,20 @@ impl WaveformParams {
             freq,
             phase,
             offset,
+            waveform: WaveformType::Sine,
         }
     }
 
     pub fn get(&self) -> WaveformParams {
         *self
+    }
+
+    pub fn set_waveform(&mut self, waveform: WaveformType) {
+        self.waveform = waveform;
+    }
+
+    pub fn get_waveform(&self) -> WaveformType {
+        self.waveform
     }
 
     pub fn set_dt(&mut self, dt: f32) {
@@ -85,13 +128,14 @@ impl WaveformParams {
     }
 }
 
-#[derive(Copy, Clone, Debug)]
+#[derive(Clone, Debug)]
 pub struct Waveform<const POINTS: usize> {
     params: WaveformParams,
     data: [f32; POINTS],
     mask: [bool; POINTS],
     points_fetched: usize,
     waveform_type: WaveformType,
+    rng: rand::rngs::SmallRng,
 }
 
 const PI: f32 = core::f32::consts::PI;
@@ -104,6 +148,7 @@ impl<const POINTS: usize> Default for Waveform<POINTS> {
             mask: [false; POINTS],
             points_fetched: 0,
             waveform_type: WaveformType::Sine,
+            rng: rand::rngs::SmallRng::seed_from_u64(42),
         }
     }
 }
@@ -117,11 +162,13 @@ impl<const POINTS: usize> Waveform<POINTS> {
                 freq,
                 phase,
                 offset,
+                waveform: waveform_type,
             },
             data: [0.0; POINTS],
             mask: [false; POINTS],
             points_fetched: 0,
             waveform_type,
+            rng: rand::rngs::SmallRng::seed_from_u64(42),
         }
     }
 
@@ -144,14 +191,13 @@ impl<const POINTS: usize> Waveform<POINTS> {
     pub fn update_point(&mut self, t: f32, dt: f32, i: usize) -> f32 {
         let p = self.params.get();
         if i < POINTS || self.mask[i] == false {
-            match self.waveform_type{
-                WaveformType::Sine => self.data[i] = p.get_offset() + p.get_amplitude()*libm::sinf(2.0*PI*p.get_freq() * (t + (i as f32)*dt) + p.get_phase()),
-                //WaveformType::Square => self.data[i] = p.get_offset() + p.get_amplitude()*libm::sinf(2.0*PI*p.get_freq() * (t + (i as f32)*dt) + p.get_phase()).signum(),
-                WaveformType::Triangle => self.data[i] = p.get_offset() + (2.0*p.get_amplitude()/PI)*libm::asinf(libm::sinf(2.0*PI*p.get_freq() * (t + (i as f32)*dt) + p.get_phase())),
-                WaveformType::Sawtooth => self.data[i] = p.get_offset() + p.get_amplitude()*libm::fmodf(2.0*PI*p.get_freq() * (t + (i as f32)*dt) + p.get_phase(), 2.0*PI)/PI - 1.0,
-                WaveformType::Noise => self.data[i] = p.get_offset() + p.get_amplitude()*libm::sinf(2.0*PI*p.get_freq() * (t + (i as f32)*dt) + p.get_phase()),
-                _ => self.data[i] = 0.0,
-            }
+            self.data[i] = match self.waveform_type{
+                WaveformType::Sine => p.get_offset() + p.get_amplitude()*libm::sinf(2.0*PI*p.get_freq() * (t + (i as f32)*dt) + p.get_phase()),
+                WaveformType::Square => p.get_offset() + p.get_amplitude()*libm::sinf(2.0*PI*p.get_freq() * (t + (i as f32)*dt) + p.get_phase()).signum(),
+                WaveformType::Triangle => p.get_offset() + (2.0*p.get_amplitude()/PI)*libm::asinf(libm::sinf(2.0*PI*p.get_freq() * (t + (i as f32)*dt) + p.get_phase())),
+                WaveformType::Sawtooth => p.get_offset() + p.get_amplitude()*libm::fmodf(2.0*PI*p.get_freq() * (t + (i as f32)*dt) + p.get_phase(), 2.0*PI)/PI - 1.0,
+                WaveformType::Noise => rand::rngs::SmallRng::random_range(&mut self.rng, p.get_offset()..p.get_amplitude()),
+            };
             self.data[i]
         }else{
             0.0
@@ -174,8 +220,6 @@ impl<const POINTS: usize> Waveform<POINTS> {
 }
 
 mod tests {
-    use crate::waveform::{Waveform, WaveformType};
-
     #[test]
     fn new_waveform() {
         let waveform = Waveform::<16>::new(1.0, 1.0, 1.0, 0.0, 0.0, WaveformType::Sine);
