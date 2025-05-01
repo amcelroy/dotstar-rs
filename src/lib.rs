@@ -1,4 +1,4 @@
-#![cfg_attr(not(test), no_std)]
+#![no_std]
 
 #[cfg(test)]
 pub extern crate std;
@@ -8,12 +8,6 @@ pub mod chart;
 
 #[cfg(feature = "wasm")]
 pub mod wasm;
-
-#[cfg(not(test))]
-#[panic_handler]
-fn panic(_info: &core::panic::PanicInfo) -> ! {
-    loop {}
-}
 
 const F_MIN: f32 = -1.0;
 const F_MAX: f32 = 1.0;

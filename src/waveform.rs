@@ -1,3 +1,5 @@
+extern crate rand;
+
 use rand::prelude::*;
 
 use libm;
@@ -14,6 +16,7 @@ pub enum WaveformType {
     Triangle,
     Sawtooth,
     Noise,
+    Bounce,
 }
 
 impl Default for WaveformType {
@@ -30,6 +33,7 @@ impl From<f32> for WaveformType {
             2 => WaveformType::Triangle,
             3 => WaveformType::Sawtooth,
             4 => WaveformType::Noise,
+            5 => WaveformType::Bounce,
             _ => WaveformType::Sine,
         }
     }
@@ -43,6 +47,7 @@ impl From<WaveformType> for f32 {
             WaveformType::Triangle => 2.0,
             WaveformType::Sawtooth => 3.0,
             WaveformType::Noise => 4.0,
+            WaveformType::Bounce => 5.0,
         }
     }
 }
@@ -150,6 +155,14 @@ impl<const POINTS: usize> Waveform<POINTS> {
                 WaveformType::Triangle => p.offset + (2.0*p.amplitude/PI)*libm::asinf(libm::sinf(2.0*PI*p.phase * (t + (i as f32)*dt) + p.phase)),
                 WaveformType::Sawtooth => p.offset + p.amplitude*libm::fmodf(2.0*PI*p.freq * (t + (i as f32)*dt) + p.phase, 2.0*PI)/PI - 1.0,
                 WaveformType::Noise => rand::rngs::SmallRng::random_range(&mut self.rng, p.offset..p.amplitude),
+                WaveformType::Bounce => {
+                    // This function linearly bounces between the offset and the amplitude at the rate of the frequency.
+                    let t = (t + (i as f32)*dt) * p.freq;
+                    let t = t - libm::floorf(t);
+                    let t = t * 2.0;
+                    let t = if t > 1.0 { 2.0 - t } else { t };
+                    p.offset + t * (p.amplitude - p.offset)
+                }
             };
             self.data[i]
         }else{
