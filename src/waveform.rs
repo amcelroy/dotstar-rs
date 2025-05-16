@@ -1,22 +1,22 @@
 extern crate rand;
 
 use rand::prelude::*;
-
+use bytemuck::{Zeroable, Pod};
 use libm;
 
 #[cfg(feature = "wasm")]
 use wasm_bindgen::prelude::wasm_bindgen;
 
 /// Different types of waveforms that can be generated.
-#[derive(Copy, Clone, Debug, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
 pub enum WaveformType {
-    Sine, 
-    Square,
-    Triangle,
-    Sawtooth,
-    Noise,
-    Bounce,
+    Sine = 0, 
+    Square = 1,
+    Triangle = 2,
+    Sawtooth = 3,
+    Noise = 4,
+    Bounce = 5,
 }
 
 impl Default for WaveformType {
@@ -62,6 +62,44 @@ pub struct WaveformParams {
     pub offset: f32,
     pub dt: f32,
     pub waveform: WaveformType,
+}
+
+// Flash compatible struct. 
+#[repr(C)]
+#[derive(Copy, Clone, Default, Debug, Pod, Zeroable)]
+pub struct WaveformParamsC {
+    pub amplitude: f32,
+    pub freq: f32,
+    pub phase: f32,
+    pub offset: f32,
+    pub dt: f32,
+    pub waveform: f32,
+}
+
+impl Into<WaveformParamsC> for WaveformParams {
+    fn into(self) -> WaveformParamsC {
+        WaveformParamsC {
+            amplitude: self.amplitude,
+            freq: self.freq,
+            phase: self.phase,
+            offset: self.offset,
+            dt: self.dt,
+            waveform: f32::from(self.waveform),
+        }
+    }
+}
+
+impl From<WaveformParamsC> for WaveformParams {
+    fn from(value: WaveformParamsC) -> Self {
+        WaveformParams {
+            amplitude: value.amplitude,
+            freq: value.freq,
+            phase: value.phase,
+            offset: value.offset,
+            dt: value.dt,
+            waveform: WaveformType::from(value.waveform),
+        }
+    }
 }
 
 #[cfg_attr(feature = "wasm", wasm_bindgen)]

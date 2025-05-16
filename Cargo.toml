@@ -15,6 +15,7 @@ js-sys = { version = "0.3.77", optional = true }
 spin = { version = "0.5.2", optional = true }
 lazy_static = { version = "1.5.0", features = ["spin_no_std"], optional = true }
 rand = { version = "0.9.1", features = ["small_rng"], default-features = false }
+bytemuck = { version = "1.14", features = ["derive"] }
 
 [dev-dependencies]
 assert_approx_eq = "1.1.0"
