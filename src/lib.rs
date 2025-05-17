@@ -5,6 +5,8 @@ pub extern crate std;
 
 pub mod waveform;
 pub mod chart;
+pub mod waveform_type;
+pub mod waveform_mode;
 
 #[cfg(feature = "wasm")]
 pub mod wasm;

@@ -7,51 +7,8 @@ use libm;
 #[cfg(feature = "wasm")]
 use wasm_bindgen::prelude::wasm_bindgen;
 
-/// Different types of waveforms that can be generated.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(feature = "wasm", wasm_bindgen)]
-pub enum WaveformType {
-    Sine = 0, 
-    Square = 1,
-    Triangle = 2,
-    Sawtooth = 3,
-    Noise = 4,
-    Bounce = 5,
-}
-
-impl Default for WaveformType {
-    fn default() -> Self {
-        WaveformType::Sine
-    }
-}
-
-impl From<f32> for WaveformType {
-    fn from(value: f32) -> Self {
-        match value as u8 {
-            0 => WaveformType::Sine,
-            1 => WaveformType::Square,
-            2 => WaveformType::Triangle,
-            3 => WaveformType::Sawtooth,
-            4 => WaveformType::Noise,
-            5 => WaveformType::Bounce,
-            _ => WaveformType::Sine,
-        }
-    }
-}
-
-impl From<WaveformType> for f32 {
-    fn from(value: WaveformType) -> Self {
-        match value {
-            WaveformType::Sine => 0.0,
-            WaveformType::Square => 1.0,
-            WaveformType::Triangle => 2.0,
-            WaveformType::Sawtooth => 3.0,
-            WaveformType::Noise => 4.0,
-            WaveformType::Bounce => 5.0,
-        }
-    }
-}
-
+use crate::waveform_type::WaveformType;
+use crate::waveform_mode::WaveformMode;
 /// Parameters for calculating a waveform.
 #[derive(Copy, Clone, Default, Debug)]
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
@@ -62,6 +19,7 @@ pub struct WaveformParams {
     pub offset: f32,
     pub dt: f32,
     pub waveform: WaveformType,
+    pub mode: WaveformMode,
 }
 
 // Flash compatible struct. 
@@ -73,7 +31,8 @@ pub struct WaveformParamsC {
     pub phase: f32,
     pub offset: f32,
     pub dt: f32,
-    pub waveform: f32,
+    pub waveform: u16,
+    pub mode: u16,
 }
 
 impl Into<WaveformParamsC> for WaveformParams {
@@ -84,7 +43,8 @@ impl Into<WaveformParamsC> for WaveformParams {
             phase: self.phase,
             offset: self.offset,
             dt: self.dt,
-            waveform: f32::from(self.waveform),
+            waveform: u16::from(self.waveform),
+            mode: u16::from(self.mode),
         }
     }
 }
@@ -98,20 +58,22 @@ impl From<WaveformParamsC> for WaveformParams {
             offset: value.offset,
             dt: value.dt,
             waveform: WaveformType::from(value.waveform),
+            mode: WaveformMode::from(value.mode),
         }
     }
 }
 
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
 impl WaveformParams {
-    pub fn new(dt:f32, amplitude: f32, freq: f32, phase: f32, offset: f32) -> Self {
+    pub fn new(dt:f32, amplitude: f32, freq: f32, phase: f32, offset: f32, waveform: WaveformType, mode: WaveformMode) -> Self {
         WaveformParams {
             dt,
             amplitude,
             freq,
             phase,
             offset,
-            waveform: WaveformType::Sine,
+            waveform,
+            mode,
         }
     }
 }
@@ -123,8 +85,8 @@ pub struct Waveform<const POINTS: usize> {
     data: [f32; POINTS],
     mask: [bool; POINTS],
     points_fetched: usize,
-    waveform_type: WaveformType,
     rng: rand::rngs::SmallRng,
+    all_leds: f32,
 }
 
 const PI: f32 = core::f32::consts::PI;
@@ -136,28 +98,21 @@ impl<const POINTS: usize> Default for Waveform<POINTS> {
             data: [0.0; POINTS],
             mask: [false; POINTS],
             points_fetched: 0,
-            waveform_type: WaveformType::Sine,
             rng: rand::rngs::SmallRng::seed_from_u64(42),
+            all_leds: 0.0,
         }
     }
 }
 
 impl<const POINTS: usize> Waveform<POINTS> {
-	pub fn new(dt:f32, amplitude: f32, freq: f32, phase: f32, offset: f32, waveform_type: WaveformType) -> Self {
+	pub fn new(params: WaveformParams) -> Self {
         Waveform {
-            params: WaveformParams {
-                dt,
-                amplitude,
-                freq,
-                phase,
-                offset,
-                waveform: waveform_type,
-            },
+            params,
             data: [0.0; POINTS],
             mask: [false; POINTS],
             points_fetched: 0,
-            waveform_type,
             rng: rand::rngs::SmallRng::seed_from_u64(42),
+            all_leds: 0.0,
         }
     }
 
@@ -171,37 +126,48 @@ impl<const POINTS: usize> Waveform<POINTS> {
         self.params = p;
     }
 
-    /// Gets the waveform type.
-    pub fn waveform_type(&self) -> WaveformType {
-        self.waveform_type
-    }
-
-    /// Sets the waveform type.s
-    pub fn set_waveform_type(&mut self, waveform_type: WaveformType) {
-        self.waveform_type = waveform_type;
-    }
-
     /// Updates the waveform point for a given time, with a dt spacing between points. 
     /// For example, a waveform my have a t0 of 0.0 and consist of 10 points, separated by 0.1 seconds.
     /// This updates a single point in the waveform and returns the value.
     pub fn update_point(&mut self, t: f32, dt: f32, i: usize) -> f32 {
         let p = self.params;
-        if i < POINTS || self.mask[i] == false {
-            self.data[i] = match self.waveform_type{
+
+        // Compute bounce value if needed
+        self.all_leds = if self.params.waveform == WaveformType::Bounce && i == 0 {
+            // This function linearly bounces between the offset and the amplitude at the rate of the frequency.
+            let t = (t + (i as f32)*dt) * p.freq;
+            let t = t - libm::floorf(t);
+            let t = t * 2.0;
+            let t = if t > 1.0 { 2.0 - t } else { t };
+            p.offset + t * (p.amplitude - p.offset)
+        }else{
+            self.all_leds
+        };
+
+        if self.params.mode == WaveformMode::InPlace && i == 0{
+            self.all_leds = match self.params.waveform {
                 WaveformType::Sine => p.offset + p.amplitude*libm::sinf(2.0*PI*p.freq * (t + (i as f32)*dt) + p.phase),
                 WaveformType::Square => p.offset + if p.amplitude*libm::sinf(2.0*PI*p.freq * (t + (i as f32)*dt) + p.phase) >= 0.0 { 1.0 } else { -1.0 },
                 WaveformType::Triangle => p.offset + (2.0*p.amplitude/PI)*libm::asinf(libm::sinf(2.0*PI*p.phase * (t + (i as f32)*dt) + p.phase)),
                 WaveformType::Sawtooth => p.offset + p.amplitude*libm::fmodf(2.0*PI*p.freq * (t + (i as f32)*dt) + p.phase, 2.0*PI)/PI - 1.0,
-                WaveformType::Noise => rand::rngs::SmallRng::random_range(&mut self.rng, p.offset..p.amplitude),
-                WaveformType::Bounce => {
-                    // This function linearly bounces between the offset and the amplitude at the rate of the frequency.
-                    let t = (t + (i as f32)*dt) * p.freq;
-                    let t = t - libm::floorf(t);
-                    let t = t * 2.0;
-                    let t = if t > 1.0 { 2.0 - t } else { t };
-                    p.offset + t * (p.amplitude - p.offset)
-                }
+                WaveformType::Noise => rand::rngs::SmallRng::random_range(&mut self.rng, p.offset..(p.offset + p.amplitude)),
+                WaveformType::Bounce => self.all_leds,
             };
+        }
+
+        if i < POINTS || self.mask[i] == false {
+            if self.params.mode == WaveformMode::Dynamic {
+                self.data[i] = match self.params.waveform {
+                    WaveformType::Sine => p.offset + p.amplitude*libm::sinf(2.0*PI*p.freq * (t + (i as f32)*dt) + p.phase),
+                    WaveformType::Square => p.offset + if p.amplitude*libm::sinf(2.0*PI*p.freq * (t + (i as f32)*dt) + p.phase) >= 0.0 { 1.0 } else { -1.0 },
+                    WaveformType::Triangle => p.offset + (2.0*p.amplitude/PI)*libm::asinf(libm::sinf(2.0*PI*p.phase * (t + (i as f32)*dt) + p.phase)),
+                    WaveformType::Sawtooth => p.offset + p.amplitude*libm::fmodf(2.0*PI*p.freq * (t + (i as f32)*dt) + p.phase, 2.0*PI)/PI - 1.0,
+                    WaveformType::Noise => rand::rngs::SmallRng::random_range(&mut self.rng, p.offset..(p.offset + p.amplitude)),
+                    WaveformType::Bounce => self.all_leds,
+                };
+            }else{
+                self.data[i] = self.all_leds;
+            }
             self.data[i]
         }else{
             0.0
@@ -244,7 +210,15 @@ mod tests {
     // Test sinusoidal waveform
     #[test]
     fn update_sine() {
-        let mut waveform = Waveform::<10>::new(0.1, 1.0, 1.0, 0.0, 0.0, WaveformType::Sine);
+        let params = WaveformParams {
+            amplitude: 1.0,
+            freq: 1.0,
+            phase: 0.0,
+            offset: 0.0,
+            dt: 0.1,
+            waveform: WaveformType::Sine,
+        };
+        let mut waveform = Waveform::<10>::new(params);
         let data = waveform.update(T0, DT);
         assert_eq!(data[0], 0.0);
         assert_eq!(data[1], 0.58778524);
@@ -261,7 +235,15 @@ mod tests {
     // Test square waveform
     #[test]
     fn update_square() {
-        let mut waveform = Waveform::<10>::new(0.1, 1.0, 1.0, 0.0, 0.0, WaveformType::Square);
+        let params = WaveformParams {
+            amplitude: 1.0,
+            freq: 1.0,
+            phase: 0.0,
+            offset: 0.0,
+            dt: 0.1,
+            waveform: WaveformType::Square,
+        };
+        let mut waveform = Waveform::<10>::new(params);
         let data = waveform.update(T0, DT);
         assert_eq!(data[0], 1.0);
         assert_eq!(data[1], 1.0);
