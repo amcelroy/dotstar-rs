@@ -1,6 +1,10 @@
+#[cfg(feature = "wasm")]
+use wasm_bindgen::prelude::wasm_bindgen;
+
 /// Different types of waveforms that can be generated.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
+#[repr(u8)]
 pub enum WaveformType {
     Sine = 0, 
     Square = 1,

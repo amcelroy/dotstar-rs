@@ -7,8 +7,8 @@ use libm;
 #[cfg(feature = "wasm")]
 use wasm_bindgen::prelude::wasm_bindgen;
 
-use crate::waveform_type::WaveformType;
-use crate::waveform_mode::WaveformMode;
+use crate::{waveform_mode::WaveformMode, waveform_type::WaveformType};
+
 /// Parameters for calculating a waveform.
 #[derive(Copy, Clone, Default, Debug)]
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
@@ -76,6 +76,11 @@ impl WaveformParams {
             mode,
         }
     }
+
+    /// Copy the parameters to a new struct.
+    pub fn get(&self) -> WaveformParams {
+        *self
+    }
 }
 
 //// A waveform is a collection of points that represent the dotstar LED values.
@@ -116,6 +121,8 @@ impl<const POINTS: usize> Waveform<POINTS> {
         }
     }
 
+    
+
     /// Returns the waveform parameters.
     pub fn params(&self) -> WaveformParams {
         self.params
@@ -147,8 +154,16 @@ impl<const POINTS: usize> Waveform<POINTS> {
         if self.params.mode == WaveformMode::InPlace && i == 0{
             self.all_leds = match self.params.waveform {
                 WaveformType::Sine => p.offset + p.amplitude*libm::sinf(2.0*PI*p.freq * (t + (i as f32)*dt) + p.phase),
-                WaveformType::Square => p.offset + if p.amplitude*libm::sinf(2.0*PI*p.freq * (t + (i as f32)*dt) + p.phase) >= 0.0 { 1.0 } else { -1.0 },
-                WaveformType::Triangle => p.offset + (2.0*p.amplitude/PI)*libm::asinf(libm::sinf(2.0*PI*p.phase * (t + (i as f32)*dt) + p.phase)),
+                WaveformType::Square => p.offset + if p.amplitude*libm::sinf(2.0*PI*p.freq * (t + (i as f32)*dt) + p.phase) >= 0.0 { p.amplitude } else { p.offset },
+                WaveformType::Triangle => {
+                    let freq = p.freq; 
+                    let time = t + (i as f32) * dt;
+                    let period = 1.0 / freq;
+                    let mut t_mod = time % period;
+                    if t_mod < 0.0 { t_mod += period; }
+                    let triangle = 4.0 * p.amplitude * ((t_mod / period) - 0.5).abs() - p.amplitude;
+                    p.offset + triangle
+                },
                 WaveformType::Sawtooth => p.offset + p.amplitude*libm::fmodf(2.0*PI*p.freq * (t + (i as f32)*dt) + p.phase, 2.0*PI)/PI - 1.0,
                 WaveformType::Noise => rand::rngs::SmallRng::random_range(&mut self.rng, p.offset..(p.offset + p.amplitude)),
                 WaveformType::Bounce => self.all_leds,
@@ -159,10 +174,22 @@ impl<const POINTS: usize> Waveform<POINTS> {
             if self.params.mode == WaveformMode::Dynamic {
                 self.data[i] = match self.params.waveform {
                     WaveformType::Sine => p.offset + p.amplitude*libm::sinf(2.0*PI*p.freq * (t + (i as f32)*dt) + p.phase),
-                    WaveformType::Square => p.offset + if p.amplitude*libm::sinf(2.0*PI*p.freq * (t + (i as f32)*dt) + p.phase) >= 0.0 { 1.0 } else { -1.0 },
-                    WaveformType::Triangle => p.offset + (2.0*p.amplitude/PI)*libm::asinf(libm::sinf(2.0*PI*p.phase * (t + (i as f32)*dt) + p.phase)),
+                    WaveformType::Square => p.offset + if p.amplitude*libm::sinf(2.0*PI*p.freq * (t + (i as f32)*dt) + p.phase) >= 0.0 { p.amplitude } else { p.offset },
+                    WaveformType::Triangle => {
+                        let freq = p.freq; 
+                        let time = t + (i as f32) * dt;
+                        let period = 1.0 / freq;
+                        let mut t_mod = time % period;
+                        if t_mod < 0.0 { t_mod += period; }
+                        let triangle = 4.0 * p.amplitude * ((t_mod / period) - 0.5).abs() - p.amplitude;
+                        p.offset + triangle
+                    },
                     WaveformType::Sawtooth => p.offset + p.amplitude*libm::fmodf(2.0*PI*p.freq * (t + (i as f32)*dt) + p.phase, 2.0*PI)/PI - 1.0,
-                    WaveformType::Noise => rand::rngs::SmallRng::random_range(&mut self.rng, p.offset..(p.offset + p.amplitude)),
+                    WaveformType::Noise => {
+                        // Avoid negative and 0 amplitude
+                        let t_amp = if p.amplitude <= 0.0 { 0.01 } else { p.amplitude };
+                        rand::rngs::SmallRng::random_range(&mut self.rng, p.offset..(p.offset + t_amp))
+                    },
                     WaveformType::Bounce => self.all_leds,
                 };
             }else{
@@ -202,7 +229,7 @@ impl<const POINTS: usize> Waveform<POINTS> {
 
 #[cfg(test)]
 mod tests {
-    use crate::waveform::{Waveform, WaveformType};
+    use crate::{waveform::{Waveform, WaveformParams, WaveformType}, waveform_mode::WaveformMode};
 
     const T0: f32 = 0.0;
     const DT: f32 = 0.1;
@@ -217,6 +244,7 @@ mod tests {
             offset: 0.0,
             dt: 0.1,
             waveform: WaveformType::Sine,
+            mode: WaveformMode::Dynamic,
         };
         let mut waveform = Waveform::<10>::new(params);
         let data = waveform.update(T0, DT);
@@ -242,6 +270,7 @@ mod tests {
             offset: 0.0,
             dt: 0.1,
             waveform: WaveformType::Square,
+            mode: WaveformMode::Dynamic,
         };
         let mut waveform = Waveform::<10>::new(params);
         let data = waveform.update(T0, DT);

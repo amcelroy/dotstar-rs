@@ -2,7 +2,9 @@ use core::cell::RefCell;
 use spin::Mutex;
 use wasm_bindgen::prelude::wasm_bindgen;
 
-use crate::{chart::Chart, waveform::{Waveform, WaveformParams, WaveformType}, to_awww};
+use crate::{chart::Chart, waveform::{Waveform, WaveformParams}, to_awww};
+use crate::waveform_mode::WaveformMode;
+use crate::waveform_type::WaveformType;
 use lazy_static::lazy_static;
 
 // Change for more colors or LEDS, don't forget to change the mapping function
@@ -20,10 +22,12 @@ lazy_static!{
 /// Initializes the chart with default waveforms and configures the mutex.
 #[wasm_bindgen]
 pub fn init() {
+
+
     let waveforms = [
-        Waveform::<POINTS>::new(DT, 0.5, 1.0, 0.0, 0.0, WaveformType::Sine), 
-        Waveform::<POINTS>::new(DT, 0.5, 1.0, 1.0, 0.0, WaveformType::Sine),
-        Waveform::<POINTS>::new(DT, 0.5, 1.0, 1.5, 0.0, WaveformType::Sine),
+        Waveform::<POINTS>::new(WaveformParams::new(DT, 0.5, 1.0, 0.0, 0.0, WaveformType::Sine, WaveformMode::Dynamic)), 
+        Waveform::<POINTS>::new(WaveformParams::new(DT, 0.5, 1.0, 1.0, 0.0, WaveformType::Sine, WaveformMode::Dynamic)),
+        Waveform::<POINTS>::new(WaveformParams::new(DT, 0.5, 1.0, 1.5, 0.0, WaveformType::Sine, WaveformMode::Dynamic)),
     ];
 
     let chart = Chart::new(waveforms);
@@ -46,7 +50,7 @@ pub fn argb_array() -> js_sys::Uint32Array {
 #[wasm_bindgen]
 pub fn update_waveform(waveform: js_sys::Number, params: WaveformParams) {
     if let Some(g) = CHART.try_lock() {
-       g.as_ref().unwrap().borrow_mut().get_waveform(waveform.as_f64().unwrap() as usize).unwrap().set_params(params);
+        g.as_ref().unwrap().borrow_mut().get_waveform(waveform.as_f64().unwrap() as usize).unwrap().set_params(params);
     } 
 }
 

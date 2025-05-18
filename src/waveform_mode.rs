@@ -1,5 +1,9 @@
+#[cfg(feature = "wasm")]
+use wasm_bindgen::prelude::wasm_bindgen;
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
+#[repr(u8)]
 pub enum WaveformMode {
     Dynamic = 0,
     InPlace = 1,
