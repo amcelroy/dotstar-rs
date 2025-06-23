@@ -121,8 +121,6 @@ impl<const POINTS: usize> Waveform<POINTS> {
         }
     }
 
-    
-
     /// Returns the waveform parameters.
     pub fn params(&self) -> WaveformParams {
         self.params

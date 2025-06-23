@@ -113,9 +113,14 @@ impl<const WAVEFORMS: usize, const POINTS: usize> Chart<WAVEFORMS, POINTS> {
     }
 
     /// Configure the 3 highest bits to 1 as per Dotstar protocol, convert to big or little endian
-    pub fn finalize(&mut self, endian: Endian) {
+    pub fn finalize(&mut self, endian: Endian, brightness: u8) {
         for i in 0..POINTS {
-            self.mapped[i] |= 0xF000_0000; // Set the 3 highest bits to 1 as per Dotstar protocol
+            self.mapped[i] |= 0xE000_0000; // Set the 3 highest bits to 1 as per Dotstar protocol
+            // Brightness
+
+            let b = (brightness.clamp(0, 31) as u32) << 24;
+            self.mapped[i] |= b ;
+
             match endian {
                 Endian::Big => self.mapped[i] = self.mapped[i].to_be(),
                 Endian::Little => self.mapped[i] = self.mapped[i].to_le(),
